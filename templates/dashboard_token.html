@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard - PowerBI Reports</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📊</text></svg>">
+    {% load static %}
+    <link rel="stylesheet" href="{% static 'css/style.css' %}">
+    <script src="https://unpkg.com/powerbi-client/dist/powerbi.min.js"></script>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #ffffff;
+            min-height: 100vh;
+        }
+        
+        .dashboard-header {
+            background: #000000;
+            padding: 15px 30px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            border-bottom: 1px solid #e0e0e0;
+        }
+        
+        .header-left {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        }
+        
+        .logo {
+            height: 40px;
+            width: auto;
+            background: white;
+            padding: 5px 15px;
+            border-radius: 5px;
+        }
+        
+        .welcome-text {
+            color: white;
+            font-size: 24px;
+            font-weight: 600;
+            margin: 0;
+        }
+        
+        .logout-btn {
+            background: #333333;
+            color: white;
+            border: 1px solid #666666;
+            padding: 12px 24px;
+            border-radius: 6px;
+            cursor: pointer;
+            text-decoration: none;
+            font-size: 16px;
+            font-weight: 500;
+            transition: all 0.3s ease;
+        }
+        
+        .logout-btn:hover {
+            background: #555555;
+            border-color: #888888;
+        }
+        
+        .powerbi-container {
+            margin: 0;
+            height: calc(100vh - 70px);
+            background: white;
+            overflow: hidden;
+            position: relative;
+        }
+        
+        .dashboard-container {
+            min-height: 100vh;
+            padding: 0;
+        }
+        
+        .loading-message {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+            color: #666;
+            font-size: 18px;
+        }
+        
+        .error-message {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+            color: #e74c3c;
+            font-size: 16px;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 5px;
+            border: 1px solid #e74c3c;
+        }
+        
+        #powerbi-report {
+            width: 100%;
+            height: 100%;
+        }
+    </style>
+</head>
+<body>
+    <div class="dashboard-container">
+        <div class="dashboard-header">
+            <div class="header-left">
+                <img src="https://hexaclimate.com/wp-content/uploads/2023/11/Hexa-Logo-with-black-text-1.svg" alt="Hexa Climate Logo" class="logo">
+                <h1 class="welcome-text">Welcome, {{ request.user.username }}!</h1>
+            </div>
+            <a href="/logout/" class="logout-btn">Logout</a>
+        </div>
+        
+        <div class="powerbi-container">
+            <div class="loading-message" id="loading-message">
+                Loading PowerBI Report...
+            </div>
+            <div class="error-message" id="error-message" style="display: none;">
+                Error loading PowerBI report. Please try refreshing the page.
+            </div>
+            <div id="powerbi-report"></div>
+        </div>
+    </div>
+
+    <script>
+        // PowerBI JavaScript SDK Integration
+        let powerbi = window['powerbi-client'];
+        let report;
+
+        // Function to load PowerBI report
+        function loadPowerBIReport() {
+            console.log('Starting PowerBI report load...');
+            
+            // Get PowerBI configuration from Django backend
+            fetch('/api/powerbi-config/', {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCookie('csrftoken')
+                },
+                credentials: 'same-origin'
+            })
+            .then(response => response.json())
+            .then(config => {
+                console.log('PowerBI config received:', config);
+                
+                if (config.error) {
+                    showError('Authentication Error: ' + config.error);
+                    return;
+                }
+                
+                if (!config.success) {
+                    showError('Failed to get PowerBI configuration');
+                    return;
+                }
+                
+                // Configure PowerBI embed settings
+                const embedConfig = {
+                    type: 'report',
+                    id: config.reportId,
+                    embedUrl: config.embedUrl,
+                    accessToken: config.embedToken,
+                    tokenType: powerbi.models.TokenType.Embed,
+                    permissions: powerbi.models.Permissions.Read,
+                    settings: {
+                        filterPaneEnabled: false,
+                        navContentPaneEnabled: true,
+                        background: powerbi.models.BackgroundType.Transparent
+                    }
+                };
+                
+                console.log('Embedding PowerBI report with config:', embedConfig);
+                
+                // Embed the report
+                const reportContainer = document.getElementById('powerbi-report');
+                report = powerbi.embed(reportContainer, embedConfig);
+                
+                // Handle events
+                report.on('loaded', function() {
+                    console.log('PowerBI report loaded successfully');
+                    hideLoading();
+                });
+                
+                report.on('rendered', function() {
+                    console.log('PowerBI report rendered successfully');
+                });
+                
+                report.on('error', function(event) {
+                    console.error('PowerBI report error:', event.detail);
+                    showError('PowerBI Error: ' + JSON.stringify(event.detail));
+                });
+                
+            })
+            .catch(error => {
+                console.error('Error fetching PowerBI config:', error);
+                showError('Network Error: ' + error.message);
+            });
+        }
+        
+        function showError(message) {
+            document.getElementById('loading-message').style.display = 'none';
+            const errorDiv = document.getElementById('error-message');
+            errorDiv.innerHTML = message;
+            errorDiv.style.display = 'block';
+        }
+        
+        function hideLoading() {
+            document.getElementById('loading-message').style.display = 'none';
+        }
+        
+        // Get CSRF token for Django
+        function getCookie(name) {
+            let cookieValue = null;
+            if (document.cookie && document.cookie !== '') {
+                const cookies = document.cookie.split(';');
+                for (let i = 0; i < cookies.length; i++) {
+                    const cookie = cookies[i].trim();
+                    if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                        break;
+                    }
+                }
+            }
+            return cookieValue;
+        }
+        
+        // Initialize when page loads
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('Page loaded, initializing PowerBI...');
+            loadPowerBIReport();
+        });
+    </script>
+</body>
+</html>

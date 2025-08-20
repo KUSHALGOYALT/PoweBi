@@ -12,6 +12,10 @@ https://docs.djangoproject.com/en/4.2/ref/settings/
 
 from pathlib import Path
 import os
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -140,6 +144,16 @@ STATICFILES_DIRS = [
 # https://docs.djangoproject.com/en/4.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
+
+# PowerBI Configuration
+POWERBI_CLIENT_ID = os.getenv('CLIENT_ID')
+POWERBI_CLIENT_SECRET = os.getenv('CLIENT_SECRET')
+POWERBI_TENANT_ID = os.getenv('TENANT_ID')
+POWERBI_WORKSPACE_ID = os.getenv('POWERBI_WORKSPACE_ID')
+POWERBI_REPORT_ID = os.getenv('POWERBI_REPORT_ID')
+POWERBI_AUTHORITY_URL = os.getenv('POWERBI_AUTHORITY_URL')
+POWERBI_SCOPE = os.getenv('POWERBI_SCOPE')
+POWERBI_API_URL = os.getenv('POWERBI_API_URL')
 
 LOGIN_URL = '/login/'
 LOGIN_REDIRECT_URL = '/dashboard/'
