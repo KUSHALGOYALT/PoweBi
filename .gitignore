@@ -28,8 +28,8 @@ db.sqlite3
 db.sqlite3-journal
 
 # Static files (if collected)
-/static/
 staticfiles/
+/static_collected/
 
 # Media files
 media/
